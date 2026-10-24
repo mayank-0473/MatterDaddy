@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SignSetu – Indian Sign Language to speech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+<style>
+:root{--bg:#F1F6F7;--panel:#fff;--ink:#10202A;--mute:#52636E;--line:#D3DEE3;--teal:#0B6E78;--hero:#0A3B42;--sig:#FFD23F;--coral:#C8431F;--ok:#1B8A4B;--r:18px;--sh:0 1px 2px rgba(16,32,42,.06),0 8px 24px rgba(16,32,42,.08)}
+@media (prefers-color-scheme:dark){:root{--bg:#0B1418;--panel:#14212A;--ink:#EAF1F4;--mute:#9BB0BA;--line:#2A3C46;--teal:#43B7C2;--hero:#0E2B31;--sh:0 8px 24px rgba(0,0,0,.35)}}
+*{box-sizing:border-box}
+html,body{margin:0}
+html{font-size:100%}
+body{background:var(--bg);color:var(--ink);font:400 1.1rem/1.55 "Atkinson Hyperlegible",system-ui,sans-serif}
+h1,h2,h3{font-family:"Bricolage Grotesque","Atkinson Hyperlegible",sans-serif;margin:0;line-height:1.1}
+button,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--sig);outline-offset:3px;box-shadow:0 0 0 6px var(--teal)}
+header{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between;padding:12px clamp(16px,4vw,48px);background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:12px;font:800 1.6rem "Bricolage Grotesque",sans-serif}
+.logo{width:40px;height:40px;border-radius:12px;background:var(--hero);display:grid;place-items:center;font-size:1.3rem}
+.brand small{display:block;font:400 .85rem "Atkinson Hyperlegible";color:var(--mute)}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:flex;background:var(--bg);border-radius:999px;padding:4px}
+.seg button{background:none;border:0;padding:8px 16px;cursor:pointer;min-height:44px;border-radius:999px;font-weight:700}
+.seg button[aria-pressed=true]{background:var(--teal);color:#fff;box-shadow:var(--sh)}
+.btn{background:var(--teal);color:#fff;border:0;border-radius:999px;padding:12px 26px;min-height:52px;cursor:pointer;font-weight:700;display:inline-flex;gap:8px;align-items:center;justify-content:center;transition:transform .12s}
+.btn:hover:not(:disabled){transform:translateY(-1px)}
+.btn.ghost{background:var(--panel);color:var(--ink);border:2px solid var(--line)}
+.btn.sm{min-height:44px;padding:8px 18px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.hero{background:var(--hero);color:#fff;padding:clamp(24px,4vw,48px) clamp(16px,4vw,48px) 72px}
+.hero .in{max-width:1240px;margin:0 auto;display:grid;gap:22px}
+.hero h1{font-size:clamp(2.1rem,5vw,3.4rem);max-width:18ch}
+.hero p{margin:0;color:#BFD6DB;max-width:56ch}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;list-style:none;margin:0;padding:0}
+@media (max-width:720px){.steps{grid-template-columns:1fr}}
+.steps li{display:flex;gap:12px;align-items:center;background:rgba(255,255,255,.08);border-radius:14px;padding:12px 16px}
+.steps b{flex:none;width:32px;height:32px;border-radius:50%;background:var(--sig);color:#10202A;display:grid;place-items:center}
+main{padding:0 clamp(16px,4vw,48px) 48px;display:grid;gap:24px;max-width:1336px;margin:-48px auto 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:clamp(14px,2vw,22px);box-shadow:var(--sh)}
+.scen{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.scen>span{font-weight:700;margin-right:6px}
+.chip{border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 20px;min-height:48px;cursor:pointer;font-weight:700}
+.chip[aria-pressed=true]{border-color:var(--teal);background:var(--teal);color:#fff}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:24px}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.top h2{font-size:1.25rem}
+.pill{display:inline-flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;background:var(--bg);border-radius:999px;padding:4px 12px}
+.pill i{width:10px;height:10px;border-radius:50%;background:var(--mute)}
+.pill.on i{background:var(--ok);box-shadow:0 0 0 4px rgba(27,138,75,.25)}
+.cam{position:relative;aspect-ratio:4/3;background:#0A1216;border-radius:14px;overflow:hidden}
+.cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.ph{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px;color:#BFD0D8}
+.ph span{font-size:3rem;display:block}
+.badge{position:absolute;left:12px;bottom:16px;background:rgba(0,0,0,.72);color:#fff;padding:4px 14px;border-radius:999px;font-size:.95rem}
+.hold{position:absolute;left:0;bottom:0;height:6px;width:0;background:var(--sig);transition:width .1s}
+.row{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;align-items:center}
+.display{background:#0A1216;border-radius:var(--r);padding:clamp(22px,3vw,40px);min-height:300px;display:flex;flex-direction:column;justify-content:space-between;gap:20px;border-left:12px solid var(--sig);box-shadow:var(--sh)}
+.lbl{color:#9BB0BA;font-size:1rem}
+.txt{color:var(--sig);font:800 clamp(2.2rem,5.5vw,4.2rem)/1.06 "Bricolage Grotesque",sans-serif;word-break:break-word}
+.hi{color:#EAF1F4;font-size:clamp(1.2rem,2.4vw,1.8rem)}
+.conf{height:10px;background:#22343D;border-radius:99px;overflow:hidden;margin-top:14px}
+.conf i{display:block;height:100%;width:0;background:var(--sig);transition:width .2s}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media (max-width:900px){.two{grid-template-columns:1fr}}
+h2{font-size:1.3rem;margin-bottom:6px}
+.note{color:var(--mute);font-size:.95rem;margin:0}
+.signs{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:12px}
+.signs button{background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:12px 8px;min-height:92px;cursor:pointer;display:grid;gap:2px;text-align:center;font-weight:700;transition:border-color .12s,transform .12s}
+.signs button:hover{border-color:var(--teal);transform:translateY(-2px)}
+.signs .e{font-size:2rem;line-height:1.1}
+.signs small{font-weight:400;color:var(--mute);font-size:.8rem}
+ul.hist{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px;max-height:200px;overflow:auto}
+ul.hist:empty::before{content:"Translations will be listed here.";color:var(--mute);font-size:.95rem}
+ul.hist li{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--bg);border-radius:10px}
+ul.hist time{color:var(--mute);font-size:.85rem;white-space:nowrap}
+textarea{width:100%;min-height:96px;margin-top:8px;border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:12px;resize:vertical}
+.staff{background:var(--hero);color:#fff;border-radius:14px;padding:20px;margin-top:14px;font:700 clamp(1.6rem,3.6vw,2.6rem)/1.15 "Bricolage Grotesque",sans-serif;min-height:96px}
+.staff:empty::before{content:"Replies appear here in large text";font:400 1rem "Atkinson Hyperlegible";color:#9FBBC2}
+.err{color:var(--coral);font-weight:700}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- v3 polish ---- */
+header{background:color-mix(in srgb,var(--panel) 82%,transparent);backdrop-filter:blur(12px)}
+body{background:var(--bg) radial-gradient(circle at 100% 0,rgba(11,110,120,.08),transparent 40%) no-repeat}
+.hero{position:relative;overflow:hidden;background:var(--hero) radial-gradient(rgba(255,255,255,.09) 1.4px,transparent 1.6px) 0 0/22px 22px}
+.hero::after{content:"";position:absolute;right:-120px;top:-140px;width:420px;height:420px;border-radius:50%;background:var(--teal);opacity:.35;filter:blur(2px)}
+.hero .in{position:relative;z-index:1;grid-template-columns:minmax(0,1.25fr) minmax(0,.75fr);align-items:center;column-gap:40px}
+@media (max-width:900px){.hero .in{grid-template-columns:1fr}.demo{display:none}}
+.hero .copy{display:grid;gap:18px}
+.hero .steps{grid-column:1/-1}
+.hero h1{font-size:clamp(2.4rem,5.5vw,4rem);max-width:14ch;letter-spacing:-.02em}
+.demo{display:grid;gap:12px;transform:rotate(1.5deg)}
+.bub{border-radius:20px;padding:14px 20px;max-width:92%;font:800 1.5rem/1.15 "Bricolage Grotesque",sans-serif;box-shadow:0 12px 32px rgba(0,0,0,.28)}
+.bub small{display:block;font:400 .8rem "Atkinson Hyperlegible";opacity:.75;margin-bottom:4px}
+.bub.a{background:var(--sig);color:#10202A;border-bottom-left-radius:4px}
+.bub.b{background:#fff;color:#10202A;margin-left:auto;border-bottom-right-radius:4px;font-size:1.2rem}
+.steps li{backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.14)}
+.card{border-radius:24px}
+.scen{border-radius:999px;padding:10px 14px 10px 24px}
+.chip{transition:transform .12s,background .12s}
+.chip:hover{transform:translateY(-1px)}
+.chip[aria-pressed=true]{box-shadow:0 6px 16px rgba(11,110,120,.35)}
+.btn:not(.ghost){box-shadow:0 6px 16px rgba(11,110,120,.3)}
+.cam{border-radius:18px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.vf i{position:absolute;width:34px;height:34px;border:4px solid var(--sig);z-index:2;pointer-events:none}
+.vf i:nth-child(1){left:14px;top:14px;border-right:0;border-bottom:0;border-top-left-radius:12px}
+.vf i:nth-child(2){right:14px;top:14px;border-left:0;border-bottom:0;border-top-right-radius:12px}
+.vf i:nth-child(3){left:14px;bottom:14px;border-right:0;border-top:0;border-bottom-left-radius:12px}
+.vf i:nth-child(4){right:14px;bottom:14px;border-left:0;border-top:0;border-bottom-right-radius:12px}
+.display{border-left:0;border-radius:28px;position:relative;overflow:hidden;background:#0A1216 radial-gradient(rgba(255,210,63,.07) 1.2px,transparent 1.4px) 0 0/20px 20px}
+.display::before{content:"“";position:absolute;right:20px;top:-30px;font:800 11rem/1 "Bricolage Grotesque";color:rgba(255,210,63,.1)}
+.lblrow{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.wave{display:flex;gap:3px;align-items:center;height:20px;opacity:.25}
+.wave b{width:4px;height:6px;background:var(--sig);border-radius:2px}
+.speaking .wave{opacity:1}
+.speaking .wave b{animation:w .7s ease-in-out infinite alternate}
+.wave b:nth-child(2){animation-delay:.12s!important}.wave b:nth-child(3){animation-delay:.24s!important}.wave b:nth-child(4){animation-delay:.36s!important}.wave b:nth-child(5){animation-delay:.18s!important}
+@keyframes w{to{height:20px}}
+.txt{text-shadow:0 0 30px rgba(255,210,63,.25)}
+.signs button{border-radius:18px;background:var(--panel);box-shadow:0 2px 6px rgba(16,32,42,.06)}
+.signs .e{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:0 auto 4px;font-size:1.8rem;background:color-mix(in srgb,var(--teal) 14%,var(--bg))}
+.signs button:hover{box-shadow:0 10px 22px rgba(16,32,42,.14)}
+.staff{border-radius:20px;border-bottom-right-radius:6px;background:var(--hero) radial-gradient(rgba(255,255,255,.07) 1.2px,transparent 1.4px) 0 0/18px 18px}
+ul.hist li{border-left:4px solid var(--sig)}
+textarea{border-radius:16px}
+@media (prefers-reduced-motion:reduce){.speaking .wave b{animation:none;height:14px}}
+
+/* ---- sign to text ---- */
+.conv{display:grid;gap:18px}
+.flow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,2fr);gap:16px;align-items:stretch}
+@media (max-width:760px){.flow{grid-template-columns:1fr}.flow .arr{transform:rotate(90deg);justify-self:center}}
+.fs{background:var(--bg);border:2px dashed var(--line);border-radius:20px;padding:16px;text-align:center;display:grid;gap:4px;align-content:center;min-height:130px}
+.fs .big{font-size:3.4rem;line-height:1}
+.fs b{font-size:1rem}
+.fs.hot{border-style:solid;border-color:var(--sig);background:color-mix(in srgb,var(--sig) 18%,var(--bg))}
+.arr{align-self:center;font-size:2rem;color:var(--teal);font-weight:800}
+.ft{background:#0A1216;color:var(--sig);border-radius:20px;padding:18px 22px;display:grid;align-content:center;font:800 clamp(1.5rem,3.2vw,2.4rem)/1.12 "Bricolage Grotesque",sans-serif;min-height:130px}
+.ft small{display:block;font:400 .85rem "Atkinson Hyperlegible";color:#9BB0BA;margin-bottom:4px}
+.tr{background:var(--bg);border-radius:16px;padding:14px 18px;min-height:76px;font-size:1.25rem;line-height:1.6}
+.tr:empty::before{content:"The full converted text collects here, sentence by sentence.";color:var(--mute);font-size:1rem}
+.tr mark{background:color-mix(in srgb,var(--sig) 55%,transparent);color:inherit;border-radius:6px;padding:1px 6px}
+
+/* ---- text to speech ---- */
+.tts{display:grid;gap:14px;position:relative}
+.ttsg{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
+@media (max-width:860px){.ttsg{grid-template-columns:1fr}}
+.qp{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.qp button{border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 14px;min-height:40px;cursor:pointer;font-size:.95rem}
+.qp button:hover{border-color:var(--teal)}
+.opts{display:grid;gap:14px;align-content:start;background:var(--bg);border-radius:18px;padding:16px}
+.opts label{display:grid;gap:6px;font-weight:700;font-size:.95rem}
+.opts output{float:right;color:var(--mute);font-weight:400}
+.opts select{width:100%;min-height:46px;border:2px solid var(--line);border-radius:12px;background:var(--panel);padding:6px 10px}
+.opts input[type=range]{width:100%;accent-color:var(--teal);min-height:32px}
+.status{display:flex;align-items:center;gap:12px;background:var(--hero);color:#fff;border-radius:14px;padding:10px 16px}
+.status .wave{opacity:.3}
+.tts.speaking .wave{opacity:1}
+.tts.speaking .wave b{animation:w .7s ease-in-out infinite alternate}
+.tts.speaking .status{outline:3px solid var(--sig)}
+
+.vgs{display:grid;gap:10px;margin-top:4px}
+.vgs h3{font-size:1.05rem;margin:8px 0 2px}
+.vg{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.vc{border:2px solid var(--line);border-radius:16px;padding:12px;display:grid;gap:8px;background:var(--bg)}
+.vc.sel{border-color:var(--teal);background:color-mix(in srgb,var(--teal) 12%,var(--bg))}
+.vc b{font-size:.95rem;line-height:1.25;word-break:break-word}
+.vc small{color:var(--mute)}
+.vc .r{display:flex;gap:8px}
+.vc button{flex:1;min-height:42px;border-radius:999px;border:2px solid var(--line);background:var(--panel);cursor:pointer;font-weight:700}
+.vc button.u{background:var(--teal);color:#fff;border-color:var(--teal)}
+
+/* ---- right sidebar: sign dictionary ---- */
+main{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+main>*{grid-column:1}
+main>.dict{grid-column:2;grid-row:1/span 6;position:sticky;top:84px;max-height:calc(100vh - 104px);display:flex;flex-direction:column;padding:16px}
+@media (max-width:1100px){main{grid-template-columns:1fr}main>.dict{grid-column:1;grid-row:auto;position:static;max-height:none}}
+.dict .dh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.dict .dh h2{margin:0;font-size:1.2rem}
+.dict .sc{font-size:.85rem;font-weight:700;background:var(--teal);color:#fff;border-radius:999px;padding:3px 12px}
+.dict .cols{display:flex;gap:8px;color:var(--mute);font-size:.8rem;margin:6px 4px 6px}
+.dict .cols span:first-child{width:62px}
+#dict{display:grid;gap:8px;overflow:auto;padding:2px 4px 4px 2px}
+.dr{display:flex;gap:12px;align-items:center;text-align:left;width:100%;background:var(--bg);border:2px solid transparent;border-radius:16px;padding:8px 12px 8px 8px;cursor:pointer;transition:border-color .12s,background .12s}
+.dr:hover{border-color:var(--teal)}
+.dr .e{flex:none;width:50px;height:50px;border-radius:50%;display:grid;place-items:center;font-size:1.7rem;background:var(--panel)}
+.dr .t{display:grid;gap:0;min-width:0}
+.dr b{font-size:.8rem;font-weight:400;color:var(--mute)}
+.dr .m{font:800 1.08rem/1.2 "Bricolage Grotesque","Atkinson Hyperlegible",sans-serif}
+.dr small{color:var(--mute);font-size:.85rem}
+.dr.det{border-color:var(--teal);background:color-mix(in srgb,var(--teal) 14%,var(--bg))}
+.dr.on{border-color:var(--sig);background:color-mix(in srgb,var(--sig) 24%,var(--bg))}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo" aria-hidden="true">🤟</div><div>SignSetu<small>सेतु · a bridge between sign and speech</small></div></div>
+  <div class="ctrls">
+    <div class="seg" role="group" aria-label="Spoken language">
+      <button type="button" id="lEn" aria-pressed="true">English</button>
+      <button type="button" id="lHi" aria-pressed="false">हिन्दी</button>
+    </div>
+    <button type="button" class="btn ghost sm" id="spk" aria-pressed="true">🔊 Voice on</button>
+    <button type="button" class="btn ghost sm" id="big" aria-pressed="false" aria-label="Larger text">A+ Text</button>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="in">
+    <div class="copy"><h1>Sign in. Hear it spoken.</h1>
+    <p>For hospital, bank and office counters. The camera reads a sign, shows the words in big text and says them aloud.</p></div>
+    <div class="demo" aria-hidden="true"><div class="bub a"><small>Signer</small>I need a doctor.</div><div class="bub b"><small>Staff</small>Please sit. Help is on the way.</div></div>
+    <ol class="steps">
+      <li><b>1</b>Choose where you are</li>
+      <li><b>2</b>Start the camera</li>
+      <li><b>3</b>Hold a sign steady</li>
+    </ol>
+  </div>
+</section>
+
+<main>
+  <div class="card scen" role="group" aria-label="Where are you">
+    <span>Where are you?</span>
+    <button type="button" class="chip" data-s="hospital" aria-pressed="true">🏥 Hospital</button>
+    <button type="button" class="chip" data-s="bank" aria-pressed="false">🏦 Bank</button>
+    <button type="button" class="chip" data-s="office" aria-pressed="false">🏢 Office</button>
+  </div>
+
+  <div class="grid">
+    <section class="card" aria-label="Camera">
+      <div class="top"><h2>Camera</h2><span class="pill" id="pill"><i></i><span id="pt">Off</span></span></div>
+      <div class="cam" id="cam">
+        <video id="v" playsinline muted></video>
+        <canvas id="c"></canvas>
+        <div class="ph" id="ph"><div><span>📷</span>Press “Start camera”.<br>Video stays on this device.</div></div>
+        <div class="badge" id="badge" hidden>Detected: –</div>
+        <div class="vf"><i></i><i></i><i></i><i></i></div><div class="hold" id="hold"></div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="go">▶ Start camera</button>
+        <button type="button" class="btn ghost" id="stop" disabled>Stop</button>
+      </div>
+      <p class="note" id="msg" role="status" style="margin-top:10px"></p>
+    </section>
+
+    <section aria-label="Translation">
+      <div class="display" id="disp" aria-live="polite">
+        <div>
+          <div class="lblrow"><div class="lbl">Signer says</div><span class="wave" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></span></div>
+          <div class="txt" id="txt">Waiting for a sign…</div>
+        </div>
+        <div>
+          <div class="hi" id="hi"></div>
+          <div class="conf" aria-hidden="true"><i id="conf"></i></div>
+        </div>
+      </div>
+      <div class="row">
+        <button type="button" class="btn" id="say">🔊 Speak again</button>
+        <button type="button" class="btn ghost" id="clr">Clear</button>
+      </div>
+    </section>
+  </div>
+
+  <section class="card conv" aria-label="Sign to text">
+    <div class="top"><h2>Sign to text</h2><span class="note">Each recognised sign is converted into text and added to the transcript.</span></div>
+    <div class="flow">
+      <div class="fs" id="fs"><div class="big" id="fe">✋</div><b id="fn">No sign yet</b></div>
+      <div class="arr" aria-hidden="true">→</div>
+      <div class="ft" aria-live="polite"><small>Converted text</small><span id="ftx">…</span></div>
+    </div>
+    <div class="tr" id="tr" aria-live="polite"></div>
+    <div class="row" style="margin-top:0">
+      <button type="button" class="btn sm" id="cp">Copy text</button>
+      <button type="button" class="btn ghost sm" id="trc">Clear transcript</button>
+    </div>
+  </section>
+
+  <section class="card tts" id="ttsCard" aria-label="Text to speech">
+    <div class="top"><h2>Text to speech</h2><span class="note">Type anything, or use a quick phrase. SignSetu reads it aloud.</span></div>
+    <div class="ttsg">
+      <div>
+        <label for="ttsIn" class="note">Text to speak</label>
+        <textarea id="ttsIn" placeholder="Please take a seat. The doctor will call you soon."></textarea>
+        <div class="qp" id="qp" aria-label="Quick phrases"></div>
+        <div class="row">
+          <button type="button" class="btn" id="tSay">▶ Speak</button>
+          <button type="button" class="btn" id="tHi">🇮🇳 हिन्दी में बोलें</button>
+          <button type="button" class="btn" id="tEn">Speak in English</button>
+          <button type="button" class="btn ghost" id="tPause">Pause</button>
+          <button type="button" class="btn ghost" id="tStop">Stop</button>
+          <button type="button" class="btn ghost" id="tTr">Speak transcript</button>
+          <button type="button" class="btn ghost" id="tMic">🎤 Dictate / बोलकर लिखें</button>
+        </div>
+      </div>
+      <div class="opts">
+        <div><div class="note" style="font-weight:700;margin-bottom:6px">Voice style</div>
+          <div class="qp" id="vs" style="margin-top:0"><button type="button" data-r="1" data-p="1">Standard</button><button type="button" data-r="0.8" data-p="0.85">Calm</button><button type="button" data-r="1" data-p="1.35">Bright</button><button type="button" data-r="1.3" data-p="1">Quick</button><button type="button" data-r="0.7" data-p="0.7">Deep and slow</button></div></div>
+        <label>Voice<select id="tVoice"><option value="">Auto (English or Hindi)</option></select></label>
+        <label>Speed <output id="rO">1.0×</output><input type="range" id="tRate" min="0.5" max="1.5" step="0.1" value="1"></label>
+        <label>Pitch <output id="pO">1.0</output><input type="range" id="tPitch" min="0.5" max="1.5" step="0.1" value="1"></label>
+        <p class="note" id="vNote"></p>
+        <div class="status" aria-live="polite"><span class="wave" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></span><span id="tSt">Ready</span></div>
+      </div>
+    </div>
+    <div class="vgs" aria-label="Voices on this device">
+      <h2 style="margin:6px 0 0">Choose a voice · आवाज़ चुनें</h2>
+      <p class="note">Voices come from your device. Preview one, then press Use. Hindi and English each keep their own voice.</p>
+      <h3>हिन्दी</h3><div class="vg" id="vgHi"></div>
+      <h3>English</h3><div class="vg" id="vgEn"></div>
+    </div>
+  </section>
+
+  <div class="two">
+    <section class="card">
+      <h2>Sign guide and demo</h2>
+      <p class="note">Shows the hand shapes SignSetu knows. Tap one to try it without a camera.</p>
+      <div class="signs" id="signs"></div>
+      <h2 style="margin-top:22px">Recent</h2>
+      <ul class="hist" id="hist"></ul>
+    </section>
+    <section class="card">
+      <h2>Reply to the signer</h2>
+      <label for="reply" class="note">Type or speak. The reply shows in large text.</label>
+      <textarea id="reply" placeholder="Please wait, the doctor will see you soon."></textarea>
+      <div class="row">
+        <button type="button" class="btn" id="show">Show reply</button>
+        <button type="button" class="btn ghost" id="mic">🎤 Speak reply</button>
+      </div>
+      <div class="staff" id="staff" aria-live="polite"></div>
+    </section>
+  </div>
+  <aside class="card dict" aria-label="Sign dictionary">
+    <div class="dh"><h2>Sign dictionary</h2><span class="sc" id="dsc">Hospital</span></div>
+    <p class="note">Every hand sign and the text it converts to. Tap one to try it.</p>
+    <div class="cols"><span>Sign</span><span>Translated text</span></div>
+    <div id="dict"></div>
+  </aside>
+</main>
+
+<script>
+/* ---------- Vocabulary (demo set). Swap recognize() for a trained ISL model later. ---------- */
+const SIGNS={
+  palm:{e:"🖐️",name:"Open palm",en:{_:"Hello"},hi:{_:"नमस्ते"}},
+  fist:{e:"✊",name:"Fist",en:{_:"Yes"},hi:{_:"हाँ"}},
+  thumb:{e:"👍",name:"Thumbs up",en:{_:"Thank you"},hi:{_:"धन्यवाद"}},
+  point:{e:"☝️",name:"Point up",en:{_:"Please wait a moment"},hi:{_:"कृपया थोड़ा रुकिए"}},
+  three:{e:"3️⃣",name:"Three fingers",
+    en:{hospital:"Where is the doctor?",bank:"Where is the counter?",office:"Where is the reception?"},
+    hi:{hospital:"डॉक्टर कहाँ हैं?",bank:"काउंटर कहाँ है?",office:"रिसेप्शन कहाँ है?"}},
+  horns:{e:"🤘",name:"Index and little finger",
+    en:{hospital:"I need a doctor. I need help.",bank:"I need help with my account.",office:"I need help at the front desk."},
+    hi:{hospital:"मुझे डॉक्टर चाहिए। मुझे मदद चाहिए।",bank:"मुझे अपने खाते में मदद चाहिए।",office:"मुझे फ्रंट डेस्क पर मदद चाहिए।"}}  ,ok:{e:"👌",name:"OK circle",en:{_:"I understand."},hi:{_:"मैं समझ गया।"}},
+  thumbdown:{e:"👎",name:"Thumbs down",en:{_:"No."},hi:{_:"नहीं।"}},
+  four:{e:"4️⃣",name:"Four fingers",
+    en:{hospital:"I have an appointment.",bank:"I want to deposit money.",office:"I have a meeting."},
+    hi:{hospital:"मेरी अपॉइंटमेंट है।",bank:"मुझे पैसे जमा करने हैं।",office:"मेरी मीटिंग है।"}},
+  call:{e:"🤙",name:"Thumb and little finger",en:{_:"Please call my family."},hi:{_:"कृपया मेरे परिवार को फ़ोन करें।"}},
+  ell:{e:"👉",name:"Thumb and index (L)",
+    en:{hospital:"How much is the fee?",bank:"I want to withdraw money.",office:"I need to submit a document."},
+    hi:{hospital:"फीस कितनी है?",bank:"मुझे पैसे निकालने हैं।",office:"मुझे दस्तावेज़ जमा करना है।"}},
+  pinky:{e:"💧",name:"Little finger",en:{_:"I need water, please."},hi:{_:"कृपया मुझे पानी चाहिए।"}},
+  peace:{e:"✌️",name:"Two fingers (V)",en:{_:"Where is the washroom?"},hi:{_:"शौचालय कहाँ है?"}}
+};
+const HN={palm:"खुली हथेली",fist:"मुट्ठी",thumb:"अंगूठा ऊपर",point:"उँगली ऊपर",three:"तीन उँगलियाँ",horns:"तर्जनी और छोटी उँगली",ok:"ओके गोला",thumbdown:"अंगूठा नीचे",four:"चार उँगलियाँ",call:"अंगूठा और छोटी उँगली",ell:"अंगूठा और तर्जनी (L)",pinky:"छोटी उँगली",peace:"दो उँगलियाँ (V)"};
+const signName=k=>lang==="hi"&&HN[k]?HN[k]:SIGNS[k].name;
+let scen="hospital",lang="en",voice=true,last=null;
+const $=id=>document.getElementById(id);
+const phrase=(k,l)=>{const o=SIGNS[k][l];return o[scen]||o._};
+
+/* ---------- Recognition: rule-based finger states from 21 hand landmarks ---------- */
+function recognize(lm){
+  const up=(t,p)=>lm[t].y<lm[p].y;
+  const f=[up(8,6),up(12,10),up(16,14),up(20,18)];
+  const d=(a,b)=>Math.hypot(lm[a].x-lm[b].x,lm[a].y-lm[b].y);
+  const sc=d(0,9)||1;
+  const th=d(4,17)>d(3,17)*1.1;
+  const hi=Math.min(lm[5].y,lm[9].y,lm[13].y,lm[17].y),lo=Math.max(lm[5].y,lm[9].y,lm[13].y,lm[17].y);
+  const thUp=th&&lm[4].y<hi, thDn=th&&lm[4].y>lo;
+  const pinch=d(4,8)<sc*.28;
+  const n=f.filter(Boolean).length;
+  if(pinch&&f[1]&&f[2]&&f[3])return["ok",.85];
+  if(n===4)return th?["palm",.9]:["four",.85];
+  if(n===0)return thUp?["thumb",.85]:thDn?["thumbdown",.8]:["fist",.8];
+  if(th&&!f[0]&&!f[1]&&!f[2]&&f[3])return["call",.8];
+  if(th&&f[0]&&n===1)return["ell",.8];
+  if(n===1&&f[0])return["point",.85];
+  if(n===1&&f[3])return["pinky",.8];
+  if(n===2&&f[0]&&f[3])return["horns",.85];
+  if(n===2&&f[0]&&f[1])return["peace",.85];
+  if(n===3&&f[0]&&f[1]&&f[2])return["three",.8];
+  return[null,0];
+}
+
+/* ---------- Output ---------- */
+const voiceBy={en:"",hi:""};
+function pickVoice(l){
+  const vs=speechSynthesis.getVoices(),sel=voiceBy[l]||"";
+  const ch=vs.find(v=>v.name===sel);
+  if(ch&&ch.lang.toLowerCase().startsWith(l))return ch;
+  return vs.find(v=>v.lang.toLowerCase().startsWith(l==="hi"?"hi":"en-in"))||vs.find(v=>v.lang.toLowerCase().startsWith(l))||null;
+}
+function speak(t,l){
+  if(!voice||!window.speechSynthesis)return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t),pv=pickVoice(l);
+  if(pv){u.voice=pv;u.lang=pv.lang}else u.lang=l==="hi"?"hi-IN":"en-IN";
+  u.rate=+($("tRate")?$("tRate").value:1);u.pitch=+($("tPitch")?$("tPitch").value:1);
+  u.onstart=()=>$("disp").classList.add("speaking");u.onend=u.onerror=()=>$("disp").classList.remove("speaking");
+  speechSynthesis.speak(u);
+}
+function commit(k,c,quiet){
+  last=k;if(typeof markDict==="function")markDict(k,"on");if(!quiet)showConv(k);
+  const en=phrase(k,"en"),hi=phrase(k,"hi");
+  $("txt").textContent=lang==="en"?en:hi;
+  $("hi").textContent=lang==="en"?hi:en;
+  $("conf").style.width=Math.round((c||1)*100)+"%";
+  speak(lang==="en"?en:hi,lang);
+  const li=document.createElement("li");
+  const tm=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  li.innerHTML="<span></span><time>"+tm+"</time>";
+  li.firstChild.textContent=lang==="en"?en:hi;
+  $("hist").prepend(li);
+  while($("hist").children.length>8)$("hist").lastChild.remove();
+}
+
+/* ---------- UI wiring ---------- */
+const sg=$("signs");
+Object.keys(SIGNS).forEach(k=>{
+  const b=document.createElement("button");b.type="button";b.innerHTML='<span class="e">'+SIGNS[k].e+'</span><span class="nm"></span><small></small>';b.querySelector(".nm").textContent=signName(k);b.querySelector("small").textContent=phrase(k,"en");
+  b.onclick=()=>commit(k,1);sg.appendChild(b);
+});
+document.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{
+  scen=b.dataset.s;
+  document.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  if(last)commit(last,1,true);
+});
+function setLang(l){lang=l;$("lEn").setAttribute("aria-pressed",l==="en");$("lHi").setAttribute("aria-pressed",l==="hi");document.documentElement.lang=l;applyUI();refreshSigns();if(last)commit(last,1,true)}
+$("lEn").onclick=()=>setLang("en");$("lHi").onclick=()=>setLang("hi");
+$("spk").onclick=e=>{voice=!voice;e.target.setAttribute("aria-pressed",voice);e.target.textContent=T(voice?"spkOn":"spkOff");if(!voice&&window.speechSynthesis)speechSynthesis.cancel()};
+$("say").onclick=()=>{if(last)speak($("txt").textContent,lang)};
+$("clr").onclick=()=>{last=null;$("txt").textContent="Waiting for a sign…";$("hi").textContent="";$("conf").style.width="0"};
+
+$("big").onclick=e=>{const on=e.target.getAttribute("aria-pressed")!=="true";e.target.setAttribute("aria-pressed",on);document.documentElement.style.fontSize=on?"125%":"100%"};
+function refreshSigns(){if(typeof renderDict==="function")renderDict();document.querySelectorAll("#signs button").forEach((b,i)=>{const k=Object.keys(SIGNS)[i];b.querySelector("small").textContent=phrase(k,lang);b.querySelector(".nm").textContent=signName(k)})}
+document.querySelectorAll(".chip").forEach(b=>b.addEventListener("click",refreshSigns));
+function pill(on){$("pill").classList.toggle("on",on);$("pt").textContent=T(on?"live":"off")}
+
+/* sign to text */
+const tr=[];
+function renderTr(){const el=$("tr");el.textContent="";tr.forEach((t,i)=>{const sp=document.createElement(i===tr.length-1?"mark":"span");sp.textContent=t;el.append(sp," ")})}
+function showConv(k){
+  $("fe").textContent=SIGNS[k].e;$("fn").textContent=signName(k);
+  $("fs").classList.add("hot");setTimeout(()=>$("fs").classList.remove("hot"),1200);
+  const t=phrase(k,lang);$("ftx").textContent=t;tr.push(t);if(tr.length>30)tr.shift();renderTr();
+}
+$("trc").onclick=()=>{tr.length=0;renderTr();$("ftx").textContent="…";$("fe").textContent="✋";$("fn").textContent="No sign yet"};
+$("cp").onclick=async()=>{try{await navigator.clipboard.writeText(tr.join(" "));$("cp").textContent=T("cpd");setTimeout(()=>$("cp").textContent=T("cp"),1500)}catch(e){$("cp").textContent="Copy failed"}};
+
+/* text to speech */
+const syn=window.speechSynthesis;
+function fillVoices(){
+  if(!syn)return;const sel=$("tVoice"),cur=sel.value;
+  sel.length=1;
+  syn.getVoices().filter(v=>/^(en|hi)/i.test(v.lang)).forEach(v=>{const o=document.createElement("option");o.value=v.name;o.textContent=v.name+" ("+v.lang+")";sel.appendChild(o)});
+  sel.value=cur;
+  renderGallery();
+  const vs=syn.getVoices();$("vNote").textContent=vs.some(v=>/^hi/i.test(v.lang))?"":"No Hindi voice found on this device. Install one in your system settings.";
+}
+if(syn){fillVoices();syn.onvoiceschanged=fillVoices}else{$("tSt").textContent="Speech is not supported in this browser"}
+function tSpeak(text,forceLang){
+  if(!syn)return;text=text.trim();
+  if(!text){$("tSt").textContent="Type some text first";return}
+  syn.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  const gl=forceLang||(/[\u0900-\u097F]/.test(text)?"hi":"en"),v=pickVoice(gl);
+  if(v){u.voice=v;u.lang=v.lang}else u.lang=gl==="hi"?"hi-IN":"en-IN";
+  u.rate=+$("tRate").value;u.pitch=+$("tPitch").value;
+  u.onstart=()=>{$("ttsCard").classList.add("speaking");$("tSt").textContent="Speaking…"};
+  u.onend=()=>{$("ttsCard").classList.remove("speaking");$("tSt").textContent="Done"};
+  u.onerror=()=>{$("ttsCard").classList.remove("speaking");$("tSt").textContent="Could not speak this text"};
+  syn.speak(u);
+}
+$("tSay").onclick=()=>tSpeak($("ttsIn").value);
+$("tTr").onclick=()=>{const t=tr.join(" ");if(t)$("ttsIn").value=t;tSpeak(t||"")};
+$("tStop").onclick=()=>{if(syn){syn.cancel();$("ttsCard").classList.remove("speaking");$("tSt").textContent="Stopped"}};
+$("tPause").onclick=e=>{if(!syn)return;if(syn.paused){syn.resume();e.target.textContent=T("pause");$("tSt").textContent="Speaking…"}else if(syn.speaking){syn.pause();e.target.textContent=T("resume");$("tSt").textContent="Paused"}};
+$("tRate").oninput=e=>$("rO").textContent=(+e.target.value).toFixed(1)+"×";
+$("tPitch").oninput=e=>$("pO").textContent=(+e.target.value).toFixed(1);
+["Please wait a moment.","Please take a seat.","Please fill in this form.","Your turn is next.","Do you need an interpreter?","Thank you for waiting."].forEach(t=>{
+  const b=document.createElement("button");b.type="button";b.textContent=t;
+  b.onclick=()=>{$("ttsIn").value=t;tSpeak(t)};$("qp").appendChild(b);
+});
+
+/* Hindi interface */
+const UI=[
+[".hero h1","Sign in. Hear it spoken.","इशारा करें। आवाज़ सुनें।"],
+[".hero .copy p","For hospital, bank and office counters. The camera reads a sign, shows the words in big text and says them aloud.","अस्पताल, बैंक और दफ़्तर के काउंटर के लिए। कैमरा इशारा पढ़ता है, शब्द बड़े अक्षरों में दिखाता है और बोलकर सुनाता है।"],
+[".steps li:nth-child(1)","Choose where you are","चुनें कि आप कहाँ हैं"],
+[".steps li:nth-child(2)","Start the camera","कैमरा चालू करें"],
+[".steps li:nth-child(3)","Hold a sign steady","इशारा स्थिर रखें"],
+[".scen>span","Where are you?","आप कहाँ हैं?"],
+['.chip[data-s=hospital]',"🏥 Hospital","🏥 अस्पताल"],
+['.chip[data-s=bank]',"🏦 Bank","🏦 बैंक"],
+['.chip[data-s=office]',"🏢 Office","🏢 दफ़्तर"],
+["#go","▶ Start camera","▶ कैमरा चालू करें"],
+["#stop","Stop","बंद करें"],
+[".lbl","Signer says","इशारा करने वाला कहता है"],
+["#say","🔊 Speak again","🔊 फिर से बोलें"],
+["#clr","Clear","साफ़ करें"],
+[".ft small","Converted text","बदला हुआ टेक्स्ट"],
+["#trc","Clear transcript","ट्रांसक्रिप्ट साफ़ करें"],
+["#tSay","▶ Speak","▶ बोलें"],
+["#tStop","Stop","बंद करें"],
+["#tTr","Speak transcript","ट्रांसक्रिप्ट बोलें"],
+["#show","Show reply","जवाब दिखाएँ"],
+["label[for=ttsIn]","Text to speak","बोलने के लिए टेक्स्ट"],
+["label[for=reply]","Type or speak. The reply shows in large text.","लिखें या बोलें। जवाब बड़े अक्षरों में दिखेगा।"],
+["#big","A+ Text","A+ अक्षर"]
+];
+const H2=[["Camera","कैमरा"],["Sign to text","इशारे से टेक्स्ट"],["Text to speech","टेक्स्ट से आवाज़"],["Sign guide and demo","इशारा गाइड और डेमो"],["Recent","हाल के"],["Reply to the signer","इशारा करने वाले को जवाब दें"],["Sign dictionary","इशारा शब्दकोश"]];
+const STR={
+ spkOn:["🔊 Voice on","🔊 आवाज़ चालू"],spkOff:["🔇 Voice off","🔇 आवाज़ बंद"],
+ mic:["🎤 Speak reply","🎤 बोलकर जवाब दें"],cp:["Copy text","टेक्स्ट कॉपी करें"],cpd:["Copied","कॉपी हो गया"],
+ pause:["Pause","रोकें"],resume:["Resume","फिर चलाएँ"],live:["Live","चालू"],off:["Off","बंद"]
+};
+const T=k=>STR[k][lang==="hi"?1:0];
+function setTxt(el,t){const n=[...el.childNodes].reverse().find(x=>x.nodeType===3&&x.textContent.trim());if(n)n.textContent=t;else el.textContent=t}
+function applyUI(){
+  const i=lang==="hi"?2:1;
+  UI.forEach(r=>{const el=document.querySelector(r[0]);if(el)setTxt(el,r[i])});
+  document.querySelectorAll("h2").forEach(h=>{const e=H2.find(x=>x[0]===h.textContent||x[1]===h.textContent);if(e)h.textContent=e[lang==="hi"?1:0]});
+  $("spk").textContent=T(voice?"spkOn":"spkOff");
+  $("mic").textContent=T("mic");$("cp").textContent=T("cp");
+  $("pt").textContent=T($("pill").classList.contains("on")?"live":"off");
+  $("tPause").textContent=T(syn&&syn.paused?"resume":"pause");
+  document.querySelectorAll(".opts label").forEach((l,x)=>{const t=[["Voice","आवाज़"],["Speed","रफ़्तार"],["Pitch","पिच"]][x];if(t)setTxt(l,t[lang==="hi"?1:0])});
+}
+
+document.querySelectorAll("#vs button").forEach(b=>b.onclick=()=>{
+  $("tRate").value=b.dataset.r;$("tPitch").value=b.dataset.p;
+  $("rO").textContent=(+b.dataset.r).toFixed(1)+"×";$("pO").textContent=(+b.dataset.p).toFixed(1);
+  tSpeak($("ttsIn").value||(lang==="hi"?"नमस्ते, मैं आपकी मदद के लिए हूँ।":"Hello, I am here to help."));
+});
+/* Reply to signer */
+$("show").onclick=()=>{$("staff").textContent=$("reply").value.trim()};
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR)$("mic").disabled=true;
+else $("mic").onclick=()=>{
+  const r=new SR();r.lang=lang==="hi"?"hi-IN":"en-IN";
+  $("mic").textContent="Listening…";
+  r.onresult=e=>{const t=e.results[0][0].transcript;$("reply").value=t;$("staff").textContent=t};
+  r.onend=()=>$("mic").textContent=T("mic");
+  r.start();
+};
+
+
+/* voice gallery */
+function renderGallery(){
+  if(!syn)return;
+  const vs=syn.getVoices();
+  [["hi","vgHi"],["en","vgEn"]].forEach(([g,id])=>{
+    const box=$(id);box.textContent="";
+    const list=vs.filter(v=>g==="hi"?/^hi/i.test(v.lang):/^en/i.test(v.lang));
+    if(!list.length){const p=document.createElement("p");p.className="note";p.textContent=g==="hi"?"No Hindi voice on this device. Install one in your system settings.":"No English voice found.";box.appendChild(p);return}
+    list.forEach(v=>{
+      const c=document.createElement("div");c.className="vc"+(voiceBy[g]===v.name?" sel":"");
+      const b=document.createElement("b");b.textContent=v.name;
+      const sm=document.createElement("small");sm.textContent=v.lang+(v.localService?" · works offline":" · online");
+      const r=document.createElement("div");r.className="r";
+      const pv=document.createElement("button");pv.type="button";pv.textContent="▶ Preview";
+      pv.onclick=()=>{syn.cancel();const u=new SpeechSynthesisUtterance(g==="hi"?"नमस्ते, मैं आपकी मदद के लिए हूँ।":"Hello, I am here to help.");u.voice=v;u.lang=v.lang;u.rate=+$("tRate").value;u.pitch=+$("tPitch").value;syn.speak(u)};
+      const us=document.createElement("button");us.type="button";us.className="u";us.textContent=voiceBy[g]===v.name?"✓ In use":"Use";
+      us.onclick=()=>{voiceBy[g]=v.name;renderGallery();$("tSt").textContent=(g==="hi"?"Hindi":"English")+" voice: "+v.name};
+      r.append(pv,us);c.append(b,sm,r);box.appendChild(c);
+    });
+  });
+}
+$("tVoice").onchange=e=>{const v=syn&&syn.getVoices().find(x=>x.name===e.target.value);if(v){voiceBy[/^hi/i.test(v.lang)?"hi":"en"]=v.name;renderGallery()}};
+$("tHi").onclick=()=>tSpeak($("ttsIn").value||"नमस्ते, मैं आपकी मदद के लिए हूँ।","hi");
+$("tEn").onclick=()=>tSpeak($("ttsIn").value||"Hello, I am here to help.","en");
+if(!SR)$("tMic").disabled=true;
+else $("tMic").onclick=()=>{
+  const r=new SR();r.lang=lang==="hi"?"hi-IN":"en-IN";$("tSt").textContent="Listening…";
+  r.onresult=e=>{$("ttsIn").value=e.results[0][0].transcript;$("tSt").textContent="Ready"};
+  r.onerror=()=>$("tSt").textContent="Microphone not available";
+  r.start();
+};
+
+/* sign dictionary (right panel) */
+const SCN={hospital:["Hospital","अस्पताल"],bank:["Bank","बैंक"],office:["Office","दफ़्तर"]};
+let detK=null;
+function markDict(k,cls){document.querySelectorAll("#dict .dr").forEach(r=>r.classList.toggle(cls,r.dataset.k===k))}
+function renderDict(){
+  const box=$("dict");box.textContent="";
+  $("dsc").textContent=SCN[scen][lang==="hi"?1:0];
+  Object.keys(SIGNS).forEach(k=>{
+    const r=document.createElement("button");r.type="button";r.className="dr";r.dataset.k=k;
+    r.innerHTML='<span class="e"></span><span class="t"><b></b><span class="m"></span><small></small></span>';
+    r.querySelector(".e").textContent=SIGNS[k].e;
+    r.querySelector("b").textContent=signName(k);
+    r.querySelector(".m").textContent=phrase(k,lang);
+    r.querySelector("small").textContent=phrase(k,lang==="hi"?"en":"hi");
+    r.onclick=()=>commit(k,1);box.appendChild(r);
+  });
+  if(last)markDict(last,"on");if(detK)markDict(detK,"det");
+}
+document.querySelectorAll(".chip").forEach(b=>b.addEventListener("click",renderDict));
+renderDict();
+/* ---------- Camera + MediaPipe ---------- */
+let cam=null,hands=null,streak=0,cand=null,cool=0;
+const v=$("v"),cv=$("c"),ctx=cv.getContext("2d");
+function msg(t,bad){$("msg").textContent=t;$("msg").className=bad?"note err":"note"}
+$("go").onclick=async()=>{
+  if(!window.Hands){msg("Hand tracking library did not load. Check your internet connection and reload.",1);return}
+  try{
+    hands=new Hands({locateFile:f=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/"+f});
+    hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.6,minTrackingConfidence:.6});
+    hands.onResults(onResults);
+    cam=new Camera(v,{onFrame:async()=>{await hands.send({image:v})},width:640,height:480});
+    await cam.start();
+    $("ph").hidden=true;$("badge").hidden=false;pill(true);$("go").disabled=true;$("stop").disabled=false;
+    msg("Camera on. Hold one sign steady for about half a second.");
+  }catch(e){msg("Could not start the camera. Allow camera access, and open this page from localhost or https.",1)}
+};
+$("stop").onclick=()=>{
+  if(cam)cam.stop();
+  if(v.srcObject)v.srcObject.getTracks().forEach(t=>t.stop());
+  ctx.clearRect(0,0,cv.width,cv.height);
+  $("ph").hidden=false;$("badge").hidden=true;pill(false);$("hold").style.width="0";$("go").disabled=false;$("stop").disabled=true;msg("");
+};
+function onResults(r){
+  cv.width=r.image.width;cv.height=r.image.height;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const lm=r.multiHandLandmarks&&r.multiHandLandmarks[0];
+  if(!lm){streak=0;cand=null;$("hold").style.width="0";$("badge").textContent="Detected: no hand";return}
+  drawConnectors(ctx,lm,HAND_CONNECTIONS,{color:"#FFD23F",lineWidth:3});
+  drawLandmarks(ctx,lm,{color:"#0B6E78",lineWidth:1,radius:3});
+  const[k,c]=recognize(lm);
+  if(k!==detK){detK=k;markDict(k,"det")}
+  $("badge").textContent=(lang==="hi"?"पहचाना: ":"Detected: ")+(k?signName(k):"–");
+  if(k&&k===cand)streak++;else{cand=k;streak=1}
+  if(cool>0)cool--;$("hold").style.width=(k?Math.min(100,streak/14*100):0)+"%";
+  if(k&&streak>=14&&cool===0&&k!==last){commit(k,c);cool=40}
+}
+</script>
+</body>
+</html>
